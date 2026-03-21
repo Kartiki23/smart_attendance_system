@@ -1,0 +1,67 @@
+mutation SeedDatabase @transaction @auth(level: NO_ACCESS) {
+  user_insertMany(
+    data: [
+      {
+        firstName: "John"
+        lastName: "Doe"
+        username: "johndoe"
+        email: "john.doe@example.com"
+        passwordHash: "somehash"
+        userType: "student"
+        createdAt: "2024-01-01T00:00:00Z"
+      }
+      {
+        firstName: "Jane"
+        lastName: "Smith"
+        username: "janesmith"
+        email: "jane.smith@example.com"
+        passwordHash: "someotherhash"
+        userType: "faculty"
+        createdAt: "2024-01-02T00:00:00Z"
+      }
+    ]
+  )
+  student_insertMany(
+    data: [
+      {
+        userId: "550e8400-e29b-41d4-a716-446655440000" # Assuming John Doe's user ID
+        studentId: "20240001"
+        enrollmentDate: "2024-01-05"
+      }
+    ]
+  )
+  faculty_insertMany(
+    data: [
+      {
+        userId: "550e8400-e29b-41d4-a716-446655440001" # Assuming Jane Smith's user ID
+        facultyId: "F1001"
+        department: "Computer Science"
+        hireDate: "2023-08-15"
+      }
+    ]
+  )
+  course_insertMany(
+    data: [
+      {
+        facultyId: "650e8400-e29b-41d4-a716-446655440001" # Assuming Jane Smith's faculty ID
+        courseCode: "CS101"
+        title: "Introduction to Computer Science"
+        description: "A basic intro course"
+        credits: 3
+        semester: "Fall"
+        year: 2024
+        capacity: 50
+      }
+    ]
+  )
+  enrollment_insertMany(
+    data: [
+      {
+        studentId: "750e8400-e29b-41d4-a716-446655440000" # Assuming John Doe's student ID
+        courseId: "850e8400-e29b-41d4-a716-446655440000" # Assuming CS101's course ID
+        enrollmentDate: "2024-01-10"
+        status: "Enrolled"
+      }
+    ]
+  )
+}

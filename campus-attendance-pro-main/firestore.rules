@@ -1,0 +1,254 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to get user role
+    function getUserRole() {
+      return get(/databases/$(database)/documents/user_roles/$(request.auth.uid)).data.role;
+    }
+    
+    // Helper function to check if user has specific role
+    function hasRole(role) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/user_roles/$(request.auth.uid)) &&
+             getUserRole() == role;
+    }
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return hasRole('admin');
+    }
+    
+    // Helper function to check if user is faculty
+    function isFaculty() {
+      return hasRole('faculty');
+    }
+    
+    // Helper function to check if user is student
+    function isStudent() {
+      return hasRole('student');
+    }
+    
+    // Helper function to check if user is parent
+    function isParent() {
+      return hasRole('parent');
+    }
+    
+    // Helper function to get linked student ID for parent
+    function getLinkedStudentId() {
+      let parentDoc = get(/databases/$(database)/documents/parents/$(request.auth.uid));
+      return parentDoc.data.studentId;
+    }
+    
+    // ============================================
+    // USER ROLES COLLECTION
+    // ============================================
+    match /user_roles/{userId} {
+      // Users can read their own role
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Only admins can create/update roles
+      allow create, update: if isAdmin();
+      
+      // No one can delete roles (use update to disable)
+      allow delete: if false;
+    }
+    
+    // ============================================
+    // PROFILES COLLECTION
+    // ============================================
+    match /profiles/{userId} {
+      // Users can read their own profile
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Users can create/update their own profile
+      allow create, update: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Admins can read all profiles
+      allow read: if isAdmin();
+      
+      // Only admins can delete profiles
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // STUDENTS COLLECTION
+    // ============================================
+    match /students/{studentId} {
+      // Students can read their own data
+      allow read: if isAuthenticated() && (
+        (isStudent() && request.auth.uid == studentId) ||
+        (isParent() && getLinkedStudentId() == studentId) ||
+        isAdmin() ||
+        isFaculty()
+      );
+      
+      // Only admins can create/update/delete students
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // ============================================
+    // FACULTY COLLECTION
+    // ============================================
+    match /faculty/{facultyId} {
+      // Faculty can read their own data
+      allow read: if isAuthenticated() && (
+        (isFaculty() && request.auth.uid == facultyId) ||
+        isAdmin()
+      );
+      
+      // Only admins can create/update/delete faculty
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // ============================================
+    // PARENTS COLLECTION
+    // ============================================
+    match /parents/{parentId} {
+      // Parents can read their own data
+      allow read: if isAuthenticated() && (
+        (isParent() && request.auth.uid == parentId) ||
+        isAdmin()
+      );
+      
+      // Only admins can create/update/delete parents
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // ============================================
+    // SUBJECTS COLLECTION
+    // ============================================
+    match /subjects/{subjectId} {
+      // All authenticated users can read subjects
+      allow read: if isAuthenticated();
+      
+      // Only admins can create/update/delete subjects
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // ============================================
+    // CLASSES COLLECTION
+    // ============================================
+    match /classes/{classId} {
+      // All authenticated users can read classes
+      allow read: if isAuthenticated();
+      
+      // Only admins can create/update/delete classes
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // ============================================
+    // LECTURE SESSIONS COLLECTION
+    // ============================================
+    match /lecture_sessions/{sessionId} {
+      // Faculty can read their own sessions
+      allow read: if isAuthenticated() && (
+        (isFaculty() && resource.data.faculty_id == request.auth.uid) ||
+        isAdmin() ||
+        isStudent() ||
+        isParent()
+      );
+      
+      // Faculty can create sessions (only for themselves)
+      allow create: if isFaculty() && 
+                      request.resource.data.faculty_id == request.auth.uid &&
+                      request.resource.data.status == 'active';
+      
+      // Faculty can update their own active sessions
+      allow update: if isFaculty() && 
+                      resource.data.faculty_id == request.auth.uid &&
+                      (request.resource.data.status == 'active' || 
+                       request.resource.data.status == 'completed');
+      
+      // Only admins can delete sessions
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // ATTENDANCE COLLECTION (CRITICAL)
+    // ============================================
+    match /attendance/{attendanceId} {
+      // Students can read their own attendance
+      allow read: if isAuthenticated() && (
+        (isStudent() && resource.data.student_id == request.auth.uid) ||
+        (isParent() && resource.data.student_id == getLinkedStudentId()) ||
+        (isFaculty() && resource.data.faculty_id == request.auth.uid) ||
+        isAdmin()
+      );
+      
+      // Students can create attendance (mark themselves present)
+      // But with strict validation
+      allow create: if isStudent() && 
+                      request.resource.data.student_id == request.auth.uid &&
+                      // Verify session exists and is active
+                      exists(/databases/$(database)/documents/lecture_sessions/$(request.resource.data.session_id)) &&
+                      get(/databases/$(database)/documents/lecture_sessions/$(request.resource.data.session_id)).data.status == 'active' &&
+                      // Verify QR code matches
+                      request.resource.data.qr_code == get(/databases/$(database)/documents/lecture_sessions/$(request.resource.data.session_id)).data.qr_code &&
+                      // Verify not expired
+                      request.time < timestamp.date(get(/databases/$(database)/documents/lecture_sessions/$(request.resource.data.session_id)).data.qr_expires_at) &&
+                      // Prevent duplicates - check if attendance already exists
+                      !exists(/databases/$(database)/documents/attendance/$(attendanceId)) &&
+                      // Set required fields
+                      request.resource.data.status == 'present' &&
+                      request.resource.data.timestamp != null;
+      
+      // Only faculty and admins can update attendance
+      allow update: if isFaculty() || isAdmin();
+      
+      // Only admins can delete attendance
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // ATTENDANCE STATS COLLECTION (Computed)
+    // ============================================
+    match /attendance_stats/{studentId} {
+      // Students can read their own stats
+      allow read: if isAuthenticated() && (
+        (isStudent() && request.auth.uid == studentId) ||
+        (isParent() && getLinkedStudentId() == studentId) ||
+        isFaculty() ||
+        isAdmin()
+      );
+      
+      // Only Cloud Functions can write stats
+      allow write: if false; // Stats are computed by Cloud Functions only
+    }
+    
+    // ============================================
+    // NOTIFICATIONS COLLECTION
+    // ============================================
+    match /notifications/{notificationId} {
+      // Users can read their own notifications
+      allow read: if isAuthenticated() && (
+        resource.data.user_id == request.auth.uid ||
+        isAdmin()
+      );
+      
+      // Only Cloud Functions can create notifications
+      allow create: if false; // Created by Cloud Functions
+      
+      // Users can update their own notifications (mark as read)
+      allow update: if isAuthenticated() && 
+                      resource.data.user_id == request.auth.uid &&
+                      request.resource.data.read == true;
+      
+      // Only admins can delete notifications
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // DEFAULT DENY
+    // ============================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
