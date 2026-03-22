@@ -34,6 +34,8 @@ import AdminTimetable from "./pages/AdminTimetable";
 import StudentAttendance from "./pages/StudentAttendance";
 import StudentPerformance from "./pages/StudentPerformance";
 import Notification from "./pages/Notification";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPasswordOTP from "./pages/ResetOtpPassword";
 
 const queryClient = new QueryClient();
 
@@ -89,6 +91,8 @@ const App = () => (
             <Route path="/my-student-attendance" element={<StudentAttendance />} />
             <Route path="/student-performance" element={<StudentPerformance />} />
             <Route path="/notifications" element={<Notification />} />
+             <Route path="/forgot-password" element={<ForgotPassword/>}/>
+            <Route path="/reset-password-otp" element={<ResetPasswordOTP/>}/>
 
             {/* Protected Routes */}
             <Route

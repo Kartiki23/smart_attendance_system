@@ -273,7 +273,8 @@ export default function Auth() {
                   <input type="checkbox" className="rounded border-border" />
                   <span className="text-sm text-muted-foreground">Remember me</span>
                 </label>
-                <button type="button" className="text-sm text-primary hover:underline">
+                <button type="button" 
+                onClick={() => navigate("/forgot-password")} className="text-sm text-primary hover:underline">
                   Forgot password?
                 </button>
               </div>
