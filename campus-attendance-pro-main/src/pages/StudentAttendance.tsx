@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/services/api";
 import { CollegeHeader } from "@/components/CollegeHeader";
+import { DashboardLayout } from "@/components/DashboardLayout";
 
 export default function StudentAttendance() {
 
@@ -106,8 +107,7 @@ export default function StudentAttendance() {
   return (
     <div className="min-h-screen bg-background">
 
-      <CollegeHeader />
-
+      <DashboardLayout role="student">
       <div className="container mx-auto px-4 py-8">
 
         <h1 className="text-2xl font-bold mb-6">
@@ -209,7 +209,7 @@ export default function StudentAttendance() {
         )}
 
       </div>
-
+        </DashboardLayout>
     </div>
   );
 }

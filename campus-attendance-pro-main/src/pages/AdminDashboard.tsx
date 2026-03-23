@@ -241,36 +241,36 @@ export default function AdminDashboard() {
 
           <motion.div className="space-y-6">
             <Card className="card-professional">
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>
-                  Latest actions across the application
-                </CardDescription>
-              </CardHeader>
+  <CardHeader>
+    <CardTitle>Recent Activity</CardTitle>
+    <CardDescription>
+      Latest actions across the application
+    </CardDescription>
+  </CardHeader>
 
-              <CardContent className="space-y-3">
-                {activities.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No recent activities
-                  </p>
-                ) : (
-                  activities.map((activity, index) => (
-                    <div
-                      key={index}
-                      className="p-3 border rounded-lg bg-card/50"
-                    >
-                      <p className="text-sm font-medium">{activity.action}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {activity.user}
-                        {activity.role ? ` • ${activity.role}` : ""}
-                      </p>
-                      <p className="text-xs text-primary mt-1">{activity.time}</p>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-
+  {/* ✅ ADDED SCROLL */}
+  <CardContent className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+    {activities.length === 0 ? (
+      <p className="text-sm text-muted-foreground">
+        No recent activities
+      </p>
+    ) : (
+      activities.map((activity, index) => (
+        <div
+          key={index}
+          className="p-3 border rounded-lg bg-card/50"
+        >
+          <p className="text-sm font-medium">{activity.action}</p>
+          <p className="text-xs text-muted-foreground">
+            {activity.user}
+            {activity.role ? ` • ${activity.role}` : ""}
+          </p>
+          <p className="text-xs text-primary mt-1">{activity.time}</p>
+        </div>
+      ))
+    )}
+  </CardContent>
+</Card>
             <Card className="card-professional">
               <CardHeader>
                 <CardTitle className="text-lg font-semibold text-primary">

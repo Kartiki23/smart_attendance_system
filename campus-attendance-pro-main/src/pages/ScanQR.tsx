@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { QrReader } from "react-qr-reader";
 import api from "@/services/api";
 import { Button } from "@/components/ui/button";
+import { DashboardLayout } from "@/components/DashboardLayout";
 
 export default function StudentAttendance() {
 
@@ -61,6 +62,7 @@ export default function StudentAttendance() {
   return (
 
     <div className="p-6 text-center">
+      <DashboardLayout role="student">
 
       <h2 className="text-xl font-bold mb-4">
         Attendance System
@@ -104,7 +106,7 @@ export default function StudentAttendance() {
           {message}
         </p>
       )}
-
+    </DashboardLayout>
     </div>
   );
 }

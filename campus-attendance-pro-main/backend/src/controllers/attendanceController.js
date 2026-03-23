@@ -12,26 +12,24 @@ const Parent = require("../models/Parent");
 const Notification = require("../models/Notification");
 const sendEmail = require("../utils/sendEmail");
 const { io, users } = require("../server");
+const moment = require("moment-timezone");
 // =============================================
 // Generate QR (Faculty) - AUTO LECTURE DETECTION
 // ============================================
+
+// const moment = require("moment-timezone");
+// const { v4: uuidv4 } = require("uuid");
+// const QRCode = require("qrcode");
+
 exports.generateQR = async (req, res) => {
   try {
     const facultyUserId = req.user.id;
-    const now = new Date();
 
-    const days = [
-      "Sunday",
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-    ];
-
-    const today = days[now.getDay()];
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    // Current IST time
+    const now = moment().tz("Asia/Kolkata");
+    const today = now.format("dddd"); // Monday
+    console.log("🕒 IST Time:", now.format("HH:mm"));
+    console.log("📅 Today:", today);
 
     const faculty = await Faculty.findOne({ user: facultyUserId }).populate(
       "user",
@@ -47,36 +45,48 @@ exports.generateQR = async (req, res) => {
 
     const lectures = await Timetable.find({
       teacher: faculty._id,
-      day: today,
+      day: { $regex: `^${today}$`, $options: "i" },
     })
       .populate("subject")
       .populate("class");
 
-    if (!lectures || lectures.length === 0) {
+    console.log("📚 Lectures Found:", lectures.length);
+
+    if (!lectures.length) {
       return res.status(404).json({
         success: false,
         message: "No lectures scheduled for today",
       });
     }
 
+    // Sort by start time
     lectures.sort((a, b) => a.startTime.localeCompare(b.startTime));
 
     let currentLecture = null;
     let nextLecture = null;
 
     for (const lecture of lectures) {
-      const [sh, sm] = lecture.startTime.split(":").map(Number);
-      const [eh, em] = lecture.endTime.split(":").map(Number);
+      // Parse lecture times in IST
+      const startTimeMoment = moment.tz(lecture.startTime, "HH:mm", "Asia/Kolkata");
+      const endTimeMoment = moment.tz(lecture.endTime, "HH:mm", "Asia/Kolkata");
 
-      const start = sh * 60 + sm;
-      const end = eh * 60 + em;
+      // Convert to minutes since midnight
+      const startMinutes = startTimeMoment.hours() * 60 + startTimeMoment.minutes();
+      const endMinutes = endTimeMoment.hours() * 60 + endTimeMoment.minutes();
 
-      if (currentMinutes >= start && currentMinutes <= end) {
+      const currentMinutes = now.hours() * 60 + now.minutes();
+
+      console.log(
+        `Lecture: ${lecture.subject?.name} | Start: ${startMinutes}, End: ${endMinutes}, Current: ${currentMinutes}`
+      );
+
+      if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
         currentLecture = lecture;
+        console.log("✅ Current lecture found");
         break;
       }
 
-      if (currentMinutes < start && !nextLecture) {
+      if (currentMinutes < startMinutes && !nextLecture) {
         nextLecture = lecture;
       }
     }
@@ -96,16 +106,10 @@ exports.generateQR = async (req, res) => {
       });
     }
 
+    // Close previous sessions
     await AttendanceSession.updateMany(
-      {
-        teacher: faculty._id,
-        isActive: true,
-      },
-      {
-        $set: {
-          isActive: false,
-        },
-      }
+      { teacher: faculty._id, isActive: true },
+      { $set: { isActive: false } }
     );
 
     const sessionToken = uuidv4();
@@ -116,6 +120,8 @@ exports.generateQR = async (req, res) => {
       class: currentLecture.class._id,
       teacher: faculty._id,
       timetable: currentLecture._id,
+      batch: currentLecture.batch,
+      type: currentLecture.type,
       expiresAt: new Date(Date.now() + 5 * 60 * 1000),
       isActive: true,
     });
@@ -126,42 +132,29 @@ exports.generateQR = async (req, res) => {
       classId: currentLecture.class._id,
       teacherId: faculty._id,
       timetableId: currentLecture._id,
+      batch: currentLecture.batch,
+      type: currentLecture.type,
       generatedAt: new Date().toISOString(),
     };
 
     const qrImage = await QRCode.toDataURL(JSON.stringify(qrPayload));
 
-    await logActivity({
-      action: `QR generated for ${currentLecture.subject.name} (${currentLecture.class.name})`,
-      user: faculty.user?.fullName || "Faculty",
-      role: "faculty",
-      meta: {
-        facultyId: faculty._id,
-        facultyUserId: facultyUserId,
-        sessionId: session._id,
-        subjectId: currentLecture.subject._id,
-        classId: currentLecture.class._id,
-        timetableId: currentLecture._id,
-      },
-    });
-
     return res.status(200).json({
       success: true,
-      message: "Unique QR generated successfully",
+      message: "QR generated successfully",
       qrImage,
-      sessionToken,
       subject: currentLecture.subject.name,
       class: currentLecture.class.name,
       startTime: currentLecture.startTime,
       endTime: currentLecture.endTime,
       expiresAt: session.expiresAt,
     });
+
   } catch (error) {
     console.error("Generate QR error:", error);
-
     return res.status(500).json({
       success: false,
-      message: error.message || "Failed to generate QR",
+      message: error.message,
     });
   }
 };
@@ -195,6 +188,16 @@ exports.markScannerAttendance = async (req, res) => {
         success: false,
         message: "Invalid QR / Session"
       });
+    }
+
+    //Batch check
+    if(session.batch!=="All"){
+      if(student.batch !== session.batch){
+        return res.status(403).json({
+          success:false,
+          message:`This QR is only for ${session.batch}`
+        });
+      }
     }
 
     // ⛔ Session expired → mark absentees
@@ -623,29 +626,65 @@ exports.getFacultySubjects = async (req, res) => {
 // Faculty Attendance History
 // =============================================
 exports.getFacultySessionHistory = async (req, res) => {
-
   try {
+    const faculty = await Faculty.findOne({ user: req.user.id });
 
-    const attendance = await Attendance.find({
-      teacher: req.user.id
+    if (!faculty) {
+      return res.status(404).json({
+        success: false,
+        message: "Faculty not found"
+      });
+    }
+
+    // Get last 14 days sessions
+    const sessions = await AttendanceSession.find({
+      teacher: faculty._id
     })
-      .populate("student")
-      .populate("subject");
+      .populate("subject", "name")
+      .populate("class", "name")
+      .populate("timetable") // 🔥 IMPORTANT (for batch + type)
+      .sort({ createdAt: -1 });
 
-    res.status(200).json({
+    const data = [];
+
+    for (const session of sessions) {
+
+      const count = await Attendance.countDocuments({
+        sessionToken: session.sessionToken
+      });
+
+      data.push({
+        id: session._id,
+        date: session.createdAt,
+        day: new Date(session.createdAt).toLocaleDateString("en-US", {
+          weekday: "long"
+        }),
+        subject: session.subject?.name || "N/A",
+        class: session.class?.name || "N/A",
+        time: `${session.timetable?.startTime} - ${session.timetable?.endTime}`,
+
+        // ✅ NEW FIELDS
+        batch: session.timetable?.batch || "All",
+        type: session.timetable?.type || "theory",
+
+        studentCount: count,
+
+        status: session.isActive ? "Conducted" : "Conducted"
+      });
+    }
+
+    res.json({
       success: true,
-      data: attendance
+      data
     });
 
   } catch (error) {
-
+    console.error("Session History Error:", error);
     res.status(500).json({
       success: false,
       message: error.message
     });
-
   }
-
 };
 
 

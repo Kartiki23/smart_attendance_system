@@ -123,7 +123,9 @@ exports.uploadTimetable = async (req, res) => {
                   startTime,
                   endTime,
                   subject: subject._id,
-                  teacher: faculty ? faculty._id : null
+                  teacher: faculty ? faculty._id : null,
+                  batch:"All",
+                  type:"theory"
                 },
                 { upsert: true }
               );
@@ -138,7 +140,7 @@ exports.uploadTimetable = async (req, res) => {
             const labMatch = line.match(/(C\d)\s*-\s*([A-Z]+)\s*-\s*([A-Z]+)/i);
 
             if (labMatch) {
-              const group = labMatch[1].toUpperCase();
+              const batch = labMatch[1].toUpperCase();
               const subjectCode = labMatch[2].toUpperCase();
               const teacherCode = labMatch[3].toUpperCase();
 
@@ -168,7 +170,7 @@ exports.uploadTimetable = async (req, res) => {
                   class: classData._id,
                   day,
                   startTime,
-                  group
+                  batch
                 },
                 {
                   class: classData._id,
@@ -177,7 +179,8 @@ exports.uploadTimetable = async (req, res) => {
                   endTime,
                   subject: subject._id,
                   teacher: faculty._id,
-                  group,
+                  batch,
+                  type:"practical",
                   room
                 },
                 { upsert: true }

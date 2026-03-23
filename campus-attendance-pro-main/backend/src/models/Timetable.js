@@ -37,9 +37,16 @@ const timetableSchema = new mongoose.Schema({
     required: true
   },
 
-  group: {
+  batch: {
     type: String,
+    enum:["All","C1","C2","C3"],
     default: "All" // C1 C2 C3 etc
+  },
+
+  type:{
+    type:String,
+    enum:["theory","practical"],
+    default:"theory"
   },
 
   room: {
@@ -51,7 +58,7 @@ const timetableSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Class",
     required: true
-  }
+  },
 
 },
 {

@@ -57,6 +57,8 @@ interface TodayLecture {
   day: string;
   startTime: string;
   endTime: string;
+  type:"theory"|"practical";
+  batch:"All"|"C1"|"C2"|"C3";
   subject?: {
     _id: string;
     name: string;
@@ -331,18 +333,46 @@ export default function FacultyDashboard() {
             ) : todaySubjects.length === 0 ? (
               <p className="text-gray-500">No lectures today 🎉</p>
             ) : (
-              todaySubjects.map((t) => (
-                <div key={t._id} className="border p-3 rounded mb-2">
-                  <p className="font-semibold text-blue-600">
-                    {t.subject?.name || "No Subject"}
-                  </p>
-                  <p className="text-sm text-gray-500">{t.class?.name || "No Class"}</p>
-                  <p className="text-sm">
-                    {t.startTime} - {t.endTime}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{t.day}</p>
-                </div>
-              ))
+             todaySubjects.map((t) => (
+  <div key={t._id} className="border p-4 rounded-xl mb-3 shadow-sm hover:shadow-md transition">
+
+    {/* SUBJECT */}
+    <p className="font-semibold text-blue-600 text-lg">
+      {t.subject?.name || "No Subject"}
+    </p>
+
+    {/* BADGES */}
+    <div className="flex gap-2 mt-2 flex-wrap">
+
+      {/* TYPE BADGE */}
+      <span
+        className={`px-3 py-1 text-xs rounded-full text-white font-medium 
+        ${t.type === "theory" ? "bg-green-500" : "bg-purple-600"}`}
+      >
+        {t.type?.toUpperCase()}
+      </span>
+
+      {/* BATCH BADGE */}
+      <span className="px-3 py-1 text-xs rounded-full bg-blue-500 text-white font-medium">
+        Batch: {t.batch}
+      </span>
+
+    </div>
+
+    {/* CLASS */}
+    <p className="text-sm text-gray-500 mt-2">
+      {t.class?.name || "No Class"}
+    </p>
+
+    {/* TIME */}
+    <p className="text-sm font-medium mt-1">
+      {t.startTime} - {t.endTime}
+    </p>
+
+    <p className="text-xs text-muted-foreground">{t.day}</p>
+
+  </div>
+))
             )}
           </CardContent>
         </Card>

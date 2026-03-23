@@ -7,21 +7,29 @@ import { format } from "date-fns";
 
 interface ScheduleItem {
   _id: string;
+
   subject: {
     name: string;
     code: string;
   };
+
   teacher?: {
     user?: {
       fullName: string;
     };
   };
+
   class?: {
     name: string;
   };
+
   startTime: string;
   endTime: string;
   day: string;
+
+  // ✅ NEW FIELDS (ADDED)
+  type?: "theory" | "practical";
+  batch?: "All" | "C1" | "C2" | "C3";
 }
 
 interface DailyScheduleProps {
@@ -43,13 +51,7 @@ export function DailySchedule({ role, classId }: DailyScheduleProps) {
         const params = new URLSearchParams();
         params.append("role", role);
 
-        console.log("Fetching daily schedule...");
-        console.log("Role:", role);
-        console.log("Calling URL:", `/timetable/daily?${params.toString()}`);
-
         const response = await api.get(`/timetable/daily?${params.toString()}`);
-
-        console.log("Daily schedule response:", response.data);
 
         if (response.data.success) {
           setSchedule(response.data.data || []);
@@ -58,7 +60,6 @@ export function DailySchedule({ role, classId }: DailyScheduleProps) {
         }
       } catch (err: any) {
         console.error("Daily schedule fetch error:", err);
-        console.error("Server response:", err?.response?.data);
         setError(err?.response?.data?.message || "Could not load schedule.");
       } finally {
         setLoading(false);
@@ -118,21 +119,52 @@ export function DailySchedule({ role, classId }: DailyScheduleProps) {
               key={item._id}
               className="flex items-start gap-4 p-3 rounded-lg border bg-card/50 hover:bg-accent/50 transition-colors"
             >
+              {/* TIME BLOCK */}
               <div className="flex flex-col items-center justify-center min-w-[3.5rem] py-1 px-2 bg-primary/10 rounded text-primary font-medium text-sm">
                 <span>{item.startTime}</span>
                 <span className="text-xs opacity-70">to</span>
                 <span>{item.endTime}</span>
               </div>
 
-              <div className="flex-1 space-y-1">
-                <h4 className="font-semibold text-base leading-none">{item.subject?.name}</h4>
+              {/* CONTENT */}
+              <div className="flex-1 space-y-2">
+                
+                {/* SUBJECT */}
+                <h4 className="font-semibold text-base leading-none">
+                  {item.subject?.name}
+                </h4>
 
+                {/* CODE */}
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <BookOpen className="h-3 w-3" />
                   <span>{item.subject?.code}</span>
                 </div>
 
+                {/* ✅ NEW BADGES */}
+                <div className="flex gap-2 mt-1 flex-wrap">
+
+                  {/* TYPE */}
+                  {item.type && (
+                    <span
+                      className={`px-2 py-1 text-xs rounded-full text-white font-medium
+                      ${item.type === "theory" ? "bg-green-500" : "bg-purple-600"}`}
+                    >
+                      {item.type.toUpperCase()}
+                    </span>
+                  )}
+
+                  {/* BATCH */}
+                  {item.batch && (
+                    <span className="px-2 py-1 text-xs rounded-full bg-blue-500 text-white font-medium">
+                      Batch: {item.batch}
+                    </span>
+                  )}
+
+                </div>
+
+                {/* DETAILS */}
                 <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1.5">
+                  
                   {role === "student" && (
                     <div className="flex items-center gap-1.5">
                       <User className="h-3.5 w-3.5" />
@@ -146,7 +178,9 @@ export function DailySchedule({ role, classId }: DailyScheduleProps) {
                       <span>{item.class?.name || "No Class"}</span>
                     </div>
                   )}
+
                 </div>
+
               </div>
             </div>
           ))}
