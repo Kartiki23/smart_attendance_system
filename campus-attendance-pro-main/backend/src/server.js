@@ -5,6 +5,9 @@ const http = require('http');
 const { Server } = require('socket.io');
 const connectDB = require('./config/db');
 
+// ✅ IMPORT REMINDER FUNCTION
+const startLectureReminder = require('./utils/lectureReminder');
+
 // Load env vars
 dotenv.config();
 
@@ -19,18 +22,18 @@ const app = express();
 const server = http.createServer(app);
 
 // ==========================
-// ✅ ALLOWED ORIGINS (UPDATED)
+// ✅ ALLOWED ORIGINS
 // ==========================
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:8080',
   'http://localhost:8081',
   'http://localhost:3000',
-  'https://smartattendancesystem-gilt.vercel.app' // ✅ ADD THIS
+  'https://smartattendancesystem-gilt.vercel.app'
 ];
 
 // ==========================
-// ✅ SOCKET.IO SETUP (FIXED)
+// ✅ SOCKET.IO SETUP
 // ==========================
 const io = new Server(server, {
   cors: {
@@ -69,7 +72,12 @@ io.on('connection', (socket) => {
 });
 
 // ==========================
-// EXPORT SOCKET
+// ✅ START LECTURE REMINDER (IMPORTANT)
+// ==========================
+startLectureReminder(io, users);
+
+// ==========================
+// EXPORT SOCKET (OPTIONAL)
 // ==========================
 module.exports.io = io;
 module.exports.users = users;
@@ -79,7 +87,7 @@ module.exports.users = users;
 // ==========================
 app.use(express.json());
 
-// ✅ FIXED CORS (IMPORTANT)
+// ✅ FIXED CORS
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -107,7 +115,11 @@ app.use('/api/parents', require('./routes/parents'));
 app.use('/api/subjects', require('./routes/subjects'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/notification', require('./routes/notification'));
-app.use('/api/otp',require('./routes/otp'));
+app.use('/api/otp', require('./routes/otp'));
+
+// ❌ REMOVE THIS LINE (VERY IMPORTANT)
+// app.use('/api/lectureReminder', require('./utils/lectureReminder'));
+
 // ==========================
 // ROOT ROUTE
 // ==========================
@@ -133,7 +145,7 @@ app.use((err, req, res, next) => {
 // ==========================
 // START SERVER
 // ==========================
-const PORT = process.env.PORT || 5173; // ✅ FIXED (Render friendly)
+const PORT = process.env.PORT || 5173;
 
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

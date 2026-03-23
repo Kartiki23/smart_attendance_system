@@ -36,6 +36,7 @@ import StudentPerformance from "./pages/StudentPerformance";
 import Notification from "./pages/Notification";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPasswordOTP from "./pages/ResetOtpPassword";
+import NotificationListener from "./components/NotificationListener";
 
 const queryClient = new QueryClient();
 
@@ -72,7 +73,7 @@ const App = () => (
 
           {/* ✅ SOCKET INITIALIZER HERE */}
           <SocketInitializer />
-
+          <NotificationListener/>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
