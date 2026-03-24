@@ -37,6 +37,7 @@ import Notification from "./pages/Notification";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPasswordOTP from "./pages/ResetOtpPassword";
 import NotificationListener from "./components/NotificationListener";
+import AttendanceSheetPage from "./pages/AttendanceSheetPage";
 
 const queryClient = new QueryClient();
 
@@ -94,6 +95,7 @@ const App = () => (
             <Route path="/notifications" element={<Notification />} />
              <Route path="/forgot-password" element={<ForgotPassword/>}/>
             <Route path="/reset-password-otp" element={<ResetPasswordOTP/>}/>
+            <Route path="/attendance-sheet/:subjectId/:classId" element={<AttendanceSheetPage/>}/>
 
             {/* Protected Routes */}
             <Route

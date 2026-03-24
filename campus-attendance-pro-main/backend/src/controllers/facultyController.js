@@ -257,3 +257,100 @@ exports.getTodaySubjects = async (req, res) => {
     });
   }
 };
+
+
+exports.getAttendanceSheet = async (req, res) => {
+  try {
+    const { classId, subjectId } = req.params;
+    const { batch } = req.query;
+
+    // ======================
+    // STUDENTS FILTER
+    // ======================
+    let studentQuery = { class: classId };
+
+    if (batch && batch !== "All") {
+      studentQuery.batch = batch;
+    }
+
+    const students = await Student.find(studentQuery)
+      .populate("user", "fullName")
+      .sort({ rollNo: 1 });
+
+    // ======================
+    // ATTENDANCE DATA
+    // ======================
+    const attendance = await Attendance.find({
+      class: classId,
+      subject: subjectId
+    }).sort({ createdAt: 1 });
+
+    // ======================
+    // UNIQUE DATES
+    // ======================
+    const uniqueDates = [
+      ...new Set(
+        attendance.map(a =>
+          new Date(a.createdAt).toISOString().split("T")[0]
+        )
+      )
+    ];
+
+    const totalLectures = uniqueDates.length;
+
+    let result = [];
+
+    // ======================
+    // BUILD TABLE
+    // ======================
+    for (let student of students) {
+      let count = 0;
+
+      let row = {
+        studentId: student._id,
+        enrollmentNo: student.enrollmentNo,
+        rollNo: student.rollNo,
+        name: student.user.fullName,
+        attendance: {},
+        totalPresent: 0,
+        percentage: 0
+      };
+
+      for (let date of uniqueDates) {
+        const record = attendance.find(
+          a =>
+            a.student.toString() === student._id.toString() &&
+            new Date(a.createdAt).toISOString().split("T")[0] === date
+        );
+
+        if (record && record.status === "Present") {
+          count++;
+          row.attendance[date] = count;
+        } else {
+          row.attendance[date] = "A";
+        }
+      }
+
+      row.totalPresent = count;
+      row.percentage =
+        totalLectures > 0
+          ? Math.round((count / totalLectures) * 100)
+          : 0;
+
+      result.push(row);
+    }
+
+    res.json({
+      success: true,
+      dates: uniqueDates,
+      data: result
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};

@@ -53,6 +53,10 @@ class AdminService {
   studentRollNumber?: string;
   relation?: "Father" | "Mother" | "Guardian";
   contactNumber?: string;
+  enrollmentNo?: string;
+  batch?: string;
+  classId?: string;
+  abbreviation?: string;
 }): Promise<User> {
   const response = await api.post("/admin/users", userData);
   return response.data.user;

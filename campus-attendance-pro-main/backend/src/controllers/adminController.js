@@ -48,9 +48,13 @@ exports.createUser = async (req, res) => {
       department,
       semester,
       employeeId,
+      abbreviation,
       studentRollNumber,
       relation,
-      contactNumber
+      contactNumber,
+      enrollmentNo,
+      batch,
+      classId
     } = req.body;
 
     if (!fullName || !email || !password || !role) {
@@ -101,7 +105,10 @@ exports.createUser = async (req, res) => {
         user: user._id,
         rollNo: rollNo || `STU${Date.now()}`,
         department: department || "General",
-        semester: semester || 1
+        semester: semester || 1,
+        enrollmentNo: enrollmentNo ||"",
+        batch: batch||"C1",
+        class:classId
       });
     }
 
@@ -121,6 +128,7 @@ exports.createUser = async (req, res) => {
       profile = await Faculty.create({
         user: user._id,
         employeeId: employeeId || `EMP${Date.now()}`,
+        abbreviation: abbreviation,
         department: department || "General"
       });
     }

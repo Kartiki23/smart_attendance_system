@@ -7,17 +7,25 @@ export default function NotificationListener() {
 
   useEffect(() => {
 
-    socket.on("newNotification", (data) => {
+    // ✅ GET USER ID FROM LOCAL STORAGE / TOKEN
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
 
+    if (user?._id) {
+      socket.emit("register", user._id); // 🔥 VERY IMPORTANT
+    }
+
+    socket.on("newNotification", (data) => {
       console.log("🔔 Notification:", data.message);
 
-      // 🔊 Play sound
       if (data.playSound) {
         const audio = new Audio("/notification.mp3");
         audio.play().catch(() => {});
       }
-
     });
+
+    return () => {
+      socket.off("newNotification");
+    };
 
   }, []);
 

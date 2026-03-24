@@ -433,6 +433,17 @@ export default function FacultyDashboard() {
               <Button onClick={handleFetchReport}>
                 {reportLoading ? "Loading..." : "Fetch Subject Report"}
               </Button>
+
+             <Button onClick={() => {
+              if (!selectedClass || !selectedSubject) {
+                alert("Please select class and subject first");
+                return;
+              }
+             navigate(`/attendance-sheet/${selectedSubject}/${selectedClass}`);
+              }}
+              className="bg-blue-900 text-white">
+                View Attendance Sheet
+            </Button>
             </div>
           </CardContent>
         </Card>

@@ -69,6 +69,7 @@ export default function UserManagement() {
   const [selectedRole, setSelectedRole] = useState<string>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [classes, setClasses] = useState<any[]>([]);
 
   const [newUser, setNewUser] = useState({
     fullName: "",
@@ -77,9 +78,13 @@ export default function UserManagement() {
     role: "faculty" as "admin" | "faculty" | "student" | "parent",
     department: "",
     employeeId: "",
+    abbreviation:"",
     rollNo: "",
     semester: 1,
     studentRollNumber: "",
+    enrollmentNo:"",
+    batch:"",
+    classId:"",
     relation: "Guardian" as "Father" | "Mother" | "Guardian",
     contactNumber: ""
   });
@@ -105,6 +110,18 @@ export default function UserManagement() {
     }
   };
 
+  useEffect(() => {
+  const fetchClasses = async () => {
+    try {
+      const res = await adminService.getAllClasses();
+      setClasses(res);
+    } catch (error) {
+      console.error("Error fetching classes", error);
+    }
+  };
+
+  fetchClasses();
+}, []);
   const filterUsers = () => {
     let filtered = [...users];
 
@@ -152,9 +169,13 @@ export default function UserManagement() {
         role: "faculty",
         department: "",
         employeeId: "",
+        abbreviation:"",
         rollNo: "",
         semester: 1,
         studentRollNumber: "",
+        enrollmentNo:"",
+        batch:"",
+        classId:"",
         relation: "Guardian",
         contactNumber: ""
       });
@@ -437,6 +458,7 @@ export default function UserManagement() {
 
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogContent className="sm:max-w-[500px]">
+              <div className="max-h-[90vh] overflow-y-auto p-6">
               <DialogHeader>
                 <DialogTitle>Add New User</DialogTitle>
                 <DialogDescription>
@@ -522,6 +544,19 @@ export default function UserManagement() {
                 )}
 
                 {newUser.role === "faculty" && (
+                  <>
+                  <div className="space-y-2">
+                    <Label htmlFor="abbreviation">Abbreviation</Label>
+                    <Input
+                      id="abbreviation"
+                      value={newUser.abbreviation}
+                      onChange={(e) =>
+                        setNewUser({ ...newUser, abbreviation: e.target.value })
+                      }
+                      placeholder="e.g., MGY"
+                    />
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="employeeId">Employee ID</Label>
                     <Input
@@ -533,6 +568,7 @@ export default function UserManagement() {
                       placeholder="e.g., EMP001"
                     />
                   </div>
+                  </>
                 )}
 
                 {newUser.role === "student" && (
@@ -548,6 +584,61 @@ export default function UserManagement() {
                         placeholder="e.g., 2024001"
                       />
                     </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="enrollmentNo">Enrollment No</Label>
+                      <Input
+                        id="enrollmentNo"
+                        value={newUser.enrollmentNo}
+                        onChange={(e) =>
+                          setNewUser({ ...newUser, enrollmentNo: e.target.value })
+                        }
+                        placeholder="e.g., 23210270201"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+  <Label>Select Class *</Label>
+  <Select
+    value={newUser.classId}
+    onValueChange={(value) =>
+      setNewUser({ ...newUser, classId: value })
+    }
+  >
+    <SelectTrigger>
+      <SelectValue placeholder="Select Class" />
+    </SelectTrigger>
+
+    <SelectContent>
+      {classes.map((cls) => (
+        <SelectItem key={cls._id} value={cls._id}>
+          {cls.name}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
+                    <div className="space-y-2">
+                      <Label htmlFor="batch">Batch</Label>
+                      <Select
+                        value={newUser.batch}
+                        onValueChange={(value) =>
+                          setNewUser({
+                            ...newUser,
+                            batch: value
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Class" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="C1">C1</SelectItem>
+                           <SelectItem value="C2">C2</SelectItem>
+                            <SelectItem value="C3">C3</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>                   
 
                     <div className="space-y-2">
                       <Label htmlFor="semester">Semester</Label>
@@ -648,6 +739,7 @@ export default function UserManagement() {
                   </Button>
                 </div>
               </form>
+              </div>
             </DialogContent>
           </Dialog>
         </div>

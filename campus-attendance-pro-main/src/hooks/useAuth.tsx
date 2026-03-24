@@ -14,6 +14,9 @@ interface User {
   email: string;
   role: UserRole;
   avatar_url?: string;
+  enrollnmentNo?: string;
+  batch?: string;
+  classId?: string;
 }
 
 interface AuthContextType {
@@ -59,7 +62,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             department: "",
             rollNumber: "",
             _id: "",
-            rollNo: ""
+            rollNo: "",
+            enrollnmentNo:"",
+            batch:"",
+            classId:""
           };
           setUser(userData);
           setRole(response.user.role as UserRole);
@@ -106,7 +112,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         department: "",
         rollNumber: "",
         _id: "",
-        rollNo: ""
+        rollNo: "",
+        enrollnmentNo:"",
+        batch:"",
+        classId:""
       };
       setUser(userData);
       setRole(response.user.role as UserRole);
@@ -164,7 +173,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         department: "",
         rollNumber: "",
         _id: "",
-        rollNo: ""
+        rollNo: "",
+        enrollnmentNo:"",
+        batch:"",
+        classId:""
       };
       setUser(userData);
       setRole(response.user.role as UserRole);

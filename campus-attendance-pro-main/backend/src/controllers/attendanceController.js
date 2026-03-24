@@ -27,14 +27,13 @@ exports.generateQR = async (req, res) => {
 
     // Current IST time
     const now = moment().tz("Asia/Kolkata");
-    const today = now.format("dddd"); // Monday
+    const today = now.format("dddd");
+
     console.log("🕒 IST Time:", now.format("HH:mm"));
     console.log("📅 Today:", today);
 
-    const faculty = await Faculty.findOne({ user: facultyUserId }).populate(
-      "user",
-      "fullName email"
-    );
+    const faculty = await Faculty.findOne({ user: facultyUserId })
+      .populate("user", "fullName email");
 
     if (!faculty) {
       return res.status(404).json({
@@ -59,38 +58,50 @@ exports.generateQR = async (req, res) => {
       });
     }
 
-    // Sort by start time
-    lectures.sort((a, b) => a.startTime.localeCompare(b.startTime));
+    // ✅ SAFE TIME PARSER (handles 12hr + 24hr)
+    const parseTime = (timeStr) => {
+      let time;
+
+      if (timeStr.includes("AM") || timeStr.includes("PM")) {
+        time = moment.tz(timeStr, "hh:mm A", "Asia/Kolkata");
+      } else {
+        time = moment.tz(timeStr, "HH:mm", "Asia/Kolkata");
+      }
+
+      return time.hours() * 60 + time.minutes();
+    };
+
+    // ✅ SORT CORRECTLY (using minutes)
+    lectures.sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
 
     let currentLecture = null;
     let nextLecture = null;
 
+    const currentMinutes = now.hours() * 60 + now.minutes();
+
     for (const lecture of lectures) {
-      // Parse lecture times in IST
-      const startTimeMoment = moment.tz(lecture.startTime, "HH:mm", "Asia/Kolkata");
-      const endTimeMoment = moment.tz(lecture.endTime, "HH:mm", "Asia/Kolkata");
 
-      // Convert to minutes since midnight
-      const startMinutes = startTimeMoment.hours() * 60 + startTimeMoment.minutes();
-      const endMinutes = endTimeMoment.hours() * 60 + endTimeMoment.minutes();
-
-      const currentMinutes = now.hours() * 60 + now.minutes();
+      const startMinutes = parseTime(lecture.startTime);
+      const endMinutes = parseTime(lecture.endTime);
 
       console.log(
-        `Lecture: ${lecture.subject?.name} | Start: ${startMinutes}, End: ${endMinutes}, Current: ${currentMinutes}`
+        `Lecture: ${lecture.subject?.name} | ${lecture.startTime}-${lecture.endTime} | Start: ${startMinutes}, End: ${endMinutes}, Current: ${currentMinutes}`
       );
 
+      // ✅ ACTIVE LECTURE CHECK
       if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
         currentLecture = lecture;
         console.log("✅ Current lecture found");
         break;
       }
 
+      // ✅ NEXT LECTURE
       if (currentMinutes < startMinutes && !nextLecture) {
         nextLecture = lecture;
       }
     }
 
+    // ❌ NO ACTIVE LECTURE
     if (!currentLecture) {
       return res.status(200).json({
         success: false,
@@ -101,12 +112,14 @@ exports.generateQR = async (req, res) => {
               class: nextLecture.class?.name || "N/A",
               startTime: nextLecture.startTime,
               endTime: nextLecture.endTime,
+              batch: nextLecture.batch,
+              type: nextLecture.type
             }
           : null,
       });
     }
 
-    // Close previous sessions
+    // ✅ CLOSE OLD SESSIONS
     await AttendanceSession.updateMany(
       { teacher: faculty._id, isActive: true },
       { $set: { isActive: false } }
@@ -114,26 +127,28 @@ exports.generateQR = async (req, res) => {
 
     const sessionToken = uuidv4();
 
+    // ✅ CREATE SESSION
     const session = await AttendanceSession.create({
       sessionToken,
       subject: currentLecture.subject._id,
       class: currentLecture.class._id,
       teacher: faculty._id,
       timetable: currentLecture._id,
-      batch: currentLecture.batch,
-      type: currentLecture.type,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      batch: currentLecture.batch || "All",
+      type: currentLecture.type || "theory",
+      expiresAt: new Date(Date.now() + 1 * 60 * 1000),
       isActive: true,
     });
 
+    // ✅ QR PAYLOAD
     const qrPayload = {
       sessionToken,
       subjectId: currentLecture.subject._id,
       classId: currentLecture.class._id,
       teacherId: faculty._id,
       timetableId: currentLecture._id,
-      batch: currentLecture.batch,
-      type: currentLecture.type,
+      batch: currentLecture.batch || "All",
+      type: currentLecture.type || "theory",
       generatedAt: new Date().toISOString(),
     };
 
@@ -147,11 +162,14 @@ exports.generateQR = async (req, res) => {
       class: currentLecture.class.name,
       startTime: currentLecture.startTime,
       endTime: currentLecture.endTime,
+      batch: currentLecture.batch,
+      type: currentLecture.type,
       expiresAt: session.expiresAt,
     });
 
   } catch (error) {
     console.error("Generate QR error:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -159,22 +177,18 @@ exports.generateQR = async (req, res) => {
   }
 };
 
-// =============================
-// MARK ATTENDANCE (QR SCAN)
-// =============================
+// =================================================
+// MARK ATTENDANCE USING QR
+// =================================================
 exports.markScannerAttendance = async (req, res) => {
   try {
-
     const { sessionToken } = req.body;
 
     if (!sessionToken) {
-      return res.status(400).json({
-        success: false,
-        message: "Session token required"
-      });
+      return res.status(400).json({ success: false, message: "Session token required" });
     }
 
-    // 🔍 Find session
+    // ⏳ FIND ACTIVE SESSION
     const session = await AttendanceSession.findOne({
       sessionToken,
       isActive: true
@@ -184,228 +198,184 @@ exports.markScannerAttendance = async (req, res) => {
       .populate("class", "name");
 
     if (!session) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid QR / Session"
-      });
+      return res.status(400).json({ success: false, message: "Invalid QR / Session" });
     }
 
-    //Batch check
-    if(session.batch!=="All"){
-      if(student.batch !== session.batch){
+    // 👤 GET STUDENT
+    const student = await Student.findOne({ user: req.user.id })
+      .populate("user", "fullName email")
+      .populate("class", "name");
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: "Student not found" });
+    }
+
+    // 🔥 BATCH CHECK
+    if (session.batch !== "All") {
+      if (student.batch !== session.batch) {
         return res.status(403).json({
-          success:false,
-          message:`This QR is only for ${session.batch}`
+          success: false,
+          message: `This QR is only for ${session.batch} batch`
         });
       }
     }
 
-    // ⛔ Session expired → mark absentees
+    // ⏳ CHECK EXPIRY
     if (new Date() > session.expiresAt) {
-
       session.isActive = false;
       await session.save();
 
       await markAbsentStudents(session);
 
-      return res.status(400).json({
-        success: false,
-        message: "Session expired"
-      });
+      return res.status(400).json({ success: false, message: "Session expired" });
     }
 
-    // 👤 Get student
-    const student = await Student.findOne({
-      user: req.user.id
-    })
-      .populate("user", "fullName email")
-      .populate("class", "name");
-
-    // 🚫 Class mismatch
-    if (student.class.toString() !== session.class.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "You are not in this class"
-      });
+    // 👥 CLASS CHECK
+    if (student.class._id.toString() !== session.class._id.toString()) {
+      return res.status(403).json({ success: false, message: "You are not in this class" });
     }
 
-    // 🔁 Duplicate check
+    // 🔁 PREVENT DUPLICATE
     const exists = await Attendance.findOne({
       student: student._id,
       sessionToken
     });
 
     if (exists) {
-      return res.status(400).json({
-        success: false,
-        message: "Already marked"
-      });
+      return res.status(400).json({ success: false, message: "Already marked" });
     }
 
-    // ✅ MARK PRESENT
+    // =========================
+    // 🎉 MARK PRESENT
+    // =========================
     await Attendance.create({
       student: student._id,
       class: session.class,
       subject: session.subject,
       teacher: session.teacher,
       sessionToken,
-      isQRMarked: true,
-      status: "Present"
+      status: "Present",
+      isQRMarked: true
     });
 
-    // =========================
-    // 🔔 NOTIFICATIONS (PRESENT)
-    // =========================
-
-    const parent = await Parent.findOne({
-      students: student._id
-    }).populate("user");
+    // 🔔 SEND NOTIFS
+    const parent = await Parent.findOne({ students: student._id }).populate("user");
 
     const message = `${student.user.fullName} is present in ${session.subject.name}`;
 
-    // 📱 Student notification
+    // Student notif
     await Notification.create({
       user: student.user._id,
       message,
       type: "attendance"
     });
 
-    // 📱 Parent notification
+    // Parent notif
     if (parent) {
-
       await Notification.create({
         user: parent.user._id,
         message,
         type: "attendance"
       });
 
-      // 🔴 REAL-TIME PUSH TO PARENT
-      const socketId = users[parent.user._id];
-
-      if (socketId) {
-        io.to(socketId).emit("newNotification", {
-          message,
-          time: new Date()
-        });
+      const socket = users[parent.user._id];
+      if (socket) {
+        io.to(socket).emit("newNotification", { message, time: new Date() });
       }
     }
 
-    // 📊 Activity log
+    // ACTIVITY LOG
     await logActivity({
-      action: `Attendance marked for ${session.subject?.name}`,
-      user: student.user?.fullName,
+      action: `Attendance marked for ${session.subject.name}`,
+      user: student.user.fullName,
       role: "student"
     });
 
-    res.json({
-      success: true,
-      message: "Attendance marked successfully"
-    });
+    return res.json({ success: true, message: "Attendance marked successfully" });
 
   } catch (error) {
-
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-
+    console.error("Mark attendance error:", error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
 
-// =============================
-// AUTO MARK ABSENT STUDENTS
-// =============================
+
+
+// =================================================
+// AUTO-MARK ABSENT STUDENTS
+// =================================================
 const markAbsentStudents = async (session) => {
   try {
-
-    // 👥 Get all class students
-    const students = await Student.find({
-      class: session.class
-    }).populate("user", "fullName email");
+    const students = await Student.find({ class: session.class })
+      .populate("user", "fullName email");
 
     for (let student of students) {
-
-      // 🔍 Already marked?
       const exists = await Attendance.findOne({
         student: student._id,
         sessionToken: session.sessionToken
       });
 
       if (!exists) {
-
-        // ❌ MARK ABSENT
+        // Mark absent
         await Attendance.create({
           student: student._id,
           class: session.class,
           subject: session.subject,
           teacher: session.teacher,
           sessionToken: session.sessionToken,
-          status: "Absent"
+          status: "Absent",
+          isQRMarked: false
         });
 
-        const message = `You were absent in ${session.subject.name}`;
-
-        // 📱 Student notification
+        // student message
+        const studentMsg = `You were absent in ${session.subject.name}`;
         await Notification.create({
           user: student.user._id,
-          message,
+          message: studentMsg,
           type: "alert"
         });
 
-        // 🔴 REAL-TIME STUDENT PUSH
-        const studentSocket = users[student.user._id];
-        if (studentSocket) {
-          io.to(studentSocket).emit("newNotification", {
-            message,
+        const socket1 = users[student.user._id];
+        if (socket1) {
+          io.to(socket1).emit("newNotification", {
+            message: studentMsg,
             time: new Date()
           });
         }
 
-        // 👪 Parent notification
-        const parent = await Parent.findOne({
-          students: student._id
-        }).populate("user");
+        // parent message
+        const parent = await Parent.findOne({ students: student._id }).populate("user");
 
         if (parent) {
-
-          const parentMessage = `Your child ${student.user.fullName} was absent in ${session.subject.name}`;
+          const parentMsg = `Your child ${student.user.fullName} was absent in ${session.subject.name}`;
 
           await Notification.create({
             user: parent.user._id,
-            message: parentMessage,
+            message: parentMsg,
             type: "alert"
           });
 
-          // 🔴 REAL-TIME PARENT PUSH
-          const parentSocket = users[parent.user._id];
-
-          if (parentSocket) {
-            io.to(parentSocket).emit("newNotification", {
-              message: parentMessage,
+          const socket2 = users[parent.user._id];
+          if (socket2) {
+            io.to(socket2).emit("newNotification", {
+              message: parentMsg,
               time: new Date()
             });
           }
 
-          // 📧 EMAIL ALERT
           if (parent.user.email) {
-            await sendEmail(
-              parent.user.email,
-              "Attendance Alert",
-              parentMessage
-            );
+            await sendEmail(parent.user.email, "Attendance Alert", parentMsg);
           }
         }
       }
     }
 
     console.log("✅ Absent students marked");
-
-  } catch (error) {
-    console.error("❌ Absent marking error:", error.message);
+  } catch (err) {
+    console.error("❌ Absent marking error:", err);
   }
 };
-
 // =============================================
 // Manual Attendance
 // =============================================

@@ -12,6 +12,22 @@ const logActivity = require("../utils/logActivity");
 // ADMIN: Upload Timetable Excel
 // =================================================
 
+// ✅ ADD THIS FUNCTION (TOP OF FILE)
+const convertTo24Hour = (timeStr) => {
+  timeStr = timeStr.trim();
+
+  let [hour, minute] = timeStr.split(":").map(Number);
+
+  // 🔥 If hour is 1–7 → treat as PM (college timing)
+  if (hour >= 1 && hour <= 7) {
+    hour += 12;
+  }
+
+  return `${hour.toString().padStart(2, "0")}:${minute
+    .toString()
+    .padStart(2, "0")}`;
+};
+
 exports.uploadTimetable = async (req, res) => {
   try {
     if (!req.file) {
@@ -35,7 +51,7 @@ exports.uploadTimetable = async (req, res) => {
       return res.status(400).json({ message: "No class found in DB" });
     }
 
-    // 🔥 ONLY READ TIMETABLE ROWS (Monday → Saturday)
+    // 🔥 LOOP DAYS
     for (let i = 3; i <= 8; i++) {
       const row = data[i];
       if (!row) continue;
@@ -56,7 +72,13 @@ exports.uploadTimetable = async (req, res) => {
           cell.toUpperCase().includes("RECESS")
         ) continue;
 
-        const [startTime, endTime] = time.split("-").map(t => t.trim());
+        // =========================
+        // 🔥 TIME FIX ADDED HERE
+        // =========================
+        let [startTime, endTime] = time.split("-").map(t => t.trim());
+
+        startTime = convertTo24Hour(startTime);
+        endTime = convertTo24Hour(endTime);
 
         try {
           const lines = cell.split("\n");
@@ -65,7 +87,6 @@ exports.uploadTimetable = async (req, res) => {
             let line = rawLine.trim();
             if (!line) continue;
 
-            // 🔥 IGNORE NON-TIMETABLE TEXT
             if (
               line.includes("Course") ||
               line.includes("Batch") ||
@@ -75,11 +96,10 @@ exports.uploadTimetable = async (req, res) => {
               continue;
             }
 
-            // Clean unwanted words
             line = line.replace(/MSBTE|CET/gi, "").trim();
 
             // =========================
-            // THEORY FORMAT (FIXED REGEX)
+            // THEORY
             // =========================
             const theoryMatch = line.match(/^([A-Z]+)\s*\(\s*(.*?)\s*\)$/i);
 
@@ -99,10 +119,9 @@ exports.uploadTimetable = async (req, res) => {
 
               let faculty = null;
 
-              // 🔥 FIX ALL STAFF ISSUE
               if (teacherCode !== "ALLSTAFF") {
                 faculty = await Faculty.findOne({
-                  employeeId: { $regex: `^${teacherCode}$`, $options: "i" }
+                 abbreviation: { $regex: `^${teacherCode}$`, $options: "i" }
                 });
 
                 if (!faculty) {
@@ -124,8 +143,8 @@ exports.uploadTimetable = async (req, res) => {
                   endTime,
                   subject: subject._id,
                   teacher: faculty ? faculty._id : null,
-                  batch:"All",
-                  type:"theory"
+                  batch: "All",
+                  type: "theory"
                 },
                 { upsert: true }
               );
@@ -135,7 +154,7 @@ exports.uploadTimetable = async (req, res) => {
             }
 
             // =========================
-            // LAB FORMAT
+            // LAB
             // =========================
             const labMatch = line.match(/(C\d)\s*-\s*([A-Z]+)\s*-\s*([A-Z]+)/i);
 
@@ -149,7 +168,7 @@ exports.uploadTimetable = async (req, res) => {
               });
 
               const faculty = await Faculty.findOne({
-                employeeId: { $regex: `^${teacherCode}$`, $options: "i" }
+                abbreviation: { $regex: `^${teacherCode}$`, $options: "i" }
               });
 
               if (!subject) {
@@ -180,7 +199,7 @@ exports.uploadTimetable = async (req, res) => {
                   subject: subject._id,
                   teacher: faculty._id,
                   batch,
-                  type:"practical",
+                  type: "practical",
                   room
                 },
                 { upsert: true }
@@ -190,7 +209,6 @@ exports.uploadTimetable = async (req, res) => {
               continue;
             }
 
-            // UNKNOWN FORMAT
             errors.push(`Row ${i + 1}: Invalid format -> ${line}`);
           }
 
@@ -201,35 +219,30 @@ exports.uploadTimetable = async (req, res) => {
     }
 
     await logActivity({
-          action: errors.length>0 ?`Timetable uploaded with ${errors.length}errors`:"Timetable uploaded successfully",
-          user: req.user?.fullName || "Admin",
-          role: "admin",
-          meta: {
-           classId:classData._id,
-           entriesAdded:success,
-           errorCount:errors.length
-          }
-        });
+      action: errors.length > 0
+        ? `Timetable uploaded with ${errors.length} errors`
+        : "Timetable uploaded successfully",
+      user: req.user?.fullName || "Admin",
+      role: "admin",
+      meta: {
+        classId: classData._id,
+        entriesAdded: success,
+        errorCount: errors.length
+      }
+    });
 
-    // FINAL RESPONSE
     if (errors.length > 0) {
       return res.status(400).json({
         success: false,
         message: `Timetable uploaded with ${errors.length} errors`,
-        results: {
-          entriesAdded: success,
-          errors
-        }
+        results: { entriesAdded: success, errors }
       });
     }
 
     res.json({
       success: true,
       message: "Timetable uploaded successfully",
-      results: {
-        entriesAdded: success,
-        errors: []
-      }
+      results: { entriesAdded: success, errors: [] }
     });
 
   } catch (error) {
@@ -239,7 +252,6 @@ exports.uploadTimetable = async (req, res) => {
     });
   }
 };
-
 
 
 // =================================================
