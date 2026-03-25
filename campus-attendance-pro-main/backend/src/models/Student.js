@@ -39,7 +39,7 @@ const studentSchema = new mongoose.Schema({
     batch:{
         type:String,
         enum:["C1","C2","C3"],
-        default:"C1"
+        default:"All"
     },
     createdAt: {
         type: Date,

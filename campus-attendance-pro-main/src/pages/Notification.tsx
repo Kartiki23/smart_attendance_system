@@ -5,7 +5,7 @@ import api from "@/services/api";
 import { CollegeHeader } from "@/components/CollegeHeader";
 import io from "socket.io-client";
 
-const socket = io(import.meta.env.VITE_API_URL);
+const socket = io("https://smartattendancesystem-2-esaj.onrender.com");
 
 interface Notification {
   _id?: string;

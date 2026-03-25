@@ -1,32 +1,31 @@
 import { useEffect } from "react";
 import io from "socket.io-client";
 
-const socket = io(import.meta.env.VITE_API_URL);
+const socket = io("https://smartattendancesystem-2-esaj.onrender.com", {
+  transports: ["websocket"]
+});
 
 export default function NotificationListener() {
 
   useEffect(() => {
+    console.log("🔔 Connecting to WebSocket...");
 
-    // ✅ GET USER ID FROM LOCAL STORAGE / TOKEN
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    socket.on("connect", () => {
+      console.log("✅ WebSocket connected:", socket.id);
+    });
 
-    if (user?._id) {
-      socket.emit("register", user._id); // 🔥 VERY IMPORTANT
-    }
+    socket.on("lectureReminder", (data) => {
+      console.log("📢 Reminder received:", data);
+      alert(data.message);
+    });
 
-    socket.on("newNotification", (data) => {
-      console.log("🔔 Notification:", data.message);
-
-      if (data.playSound) {
-        const audio = new Audio("/notification.mp3");
-        audio.play().catch(() => {});
-      }
+    socket.on("disconnect", () => {
+      console.log("❌ WebSocket disconnected");
     });
 
     return () => {
-      socket.off("newNotification");
+      socket.off("lectureReminder");
     };
-
   }, []);
 
   return null;

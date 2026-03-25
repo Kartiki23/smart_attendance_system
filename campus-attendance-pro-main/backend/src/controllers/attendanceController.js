@@ -112,7 +112,7 @@ exports.generateQR = async (req, res) => {
               class: nextLecture.class?.name || "N/A",
               startTime: nextLecture.startTime,
               endTime: nextLecture.endTime,
-              batch: nextLecture.batch,
+              // batch: nextLecture.batch,
               type: nextLecture.type
             }
           : null,
@@ -134,7 +134,7 @@ exports.generateQR = async (req, res) => {
       class: currentLecture.class._id,
       teacher: faculty._id,
       timetable: currentLecture._id,
-      batch: currentLecture.batch || "All",
+      // batch: currentLecture.batch || "All",
       type: currentLecture.type || "theory",
       expiresAt: new Date(Date.now() + 1 * 60 * 1000),
       isActive: true,
@@ -147,7 +147,7 @@ exports.generateQR = async (req, res) => {
       classId: currentLecture.class._id,
       teacherId: faculty._id,
       timetableId: currentLecture._id,
-      batch: currentLecture.batch || "All",
+      // batch: currentLecture.batch || "All",
       type: currentLecture.type || "theory",
       generatedAt: new Date().toISOString(),
     };
@@ -162,7 +162,7 @@ exports.generateQR = async (req, res) => {
       class: currentLecture.class.name,
       startTime: currentLecture.startTime,
       endTime: currentLecture.endTime,
-      batch: currentLecture.batch,
+      // batch: currentLecture.batch,
       type: currentLecture.type,
       expiresAt: session.expiresAt,
     });
@@ -210,15 +210,15 @@ exports.markScannerAttendance = async (req, res) => {
       return res.status(404).json({ success: false, message: "Student not found" });
     }
 
-    // 🔥 BATCH CHECK
-    if (session.batch !== "All") {
-      if (student.batch !== session.batch) {
-        return res.status(403).json({
-          success: false,
-          message: `This QR is only for ${session.batch} batch`
-        });
-      }
-    }
+    // // 🔥 BATCH CHECK
+    // if (session.batch !== "All") {
+    //   if (student.batch !== session.batch) {
+    //     return res.status(403).json({
+    //       success: false,
+    //       message: `This QR is only for ${session.batch} batch`
+    //     });
+    //   }
+    // }
 
     // ⏳ CHECK EXPIRY
     if (new Date() > session.expiresAt) {
