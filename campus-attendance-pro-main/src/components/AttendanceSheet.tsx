@@ -1,90 +1,70 @@
 import { useEffect, useState } from "react";
 import api from "@/services/api";
-import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
+import * as XLSX from "xlsx";
 
-export default function AttendanceSheet({ classId, subjectId }: any) {
+export default function AttendanceSheet({ classId }: any) {
 
-  const [data, setData] = useState<any[]>([]);
-  const [dates, setDates] = useState<string[]>([]);
+  const [tables, setTables] = useState<any[]>([]);
   const [batch, setBatch] = useState("All");
 
   useEffect(() => {
 
-    console.log("FETCHING SHEET...");
-    console.log("Class ID:", classId);
-    console.log("Subject ID:", subjectId);
-
     const fetchSheet = async () => {
       try {
         const res = await api.get(
-          `/faculty/attendance-sheet/${subjectId}/${classId}?batch=${batch}`
+          `/faculty/attendance-sheet/${classId}?batch=${batch}`
         );
 
-        console.log("Response:", res.data);
-
-        setData(res.data.data || []);
-        setDates(res.data.dates || []);
+        setTables(res.data.tables || []);
 
       } catch (err) {
-        console.error("Attendance Sheet Error:", err);
+        console.error(err);
       }
     };
 
-    if (classId && subjectId) {
+    if (classId) {
       fetchSheet();
     }
 
-  }, [classId, subjectId, batch]);
+  }, [classId, batch]);
 
-  const getColumnColor = (date: string) => {
-    if (!data.length) return "";
-
-    let presentCount = 0;
-
-    data.forEach((student) => {
-      if (student.attendance[date] !== "A") {
-        presentCount++;
-      }
-    });
-
-    const percentage = (presentCount / data.length) * 100;
-
-    if (percentage >= 75) return "bg-green-100";
-    if (percentage >= 50) return "bg-yellow-100";
-    return "bg-red-100";
-  };
-
+  // ======================
+  // EXPORT EXCEL
+  // ======================
   const exportToExcel = () => {
-    const sheetData = [
-      ["Enrollment No", "Roll No", "Student Name", ...dates, "Total"]
-    ];
 
-    data.forEach((student) => {
-      const row = [
-        student.studentId,
-        student.enrollmentNo,
-        student.rollNo,
-        student.name,
-        ...dates.map(d => student.attendance[d] || "-"),
-        student.totalPresent
+    tables.forEach((table) => {
+
+      const sheetData = [
+        ["Enrollment No", "Roll No", "Student Name", ...table.dates, "Total"]
       ];
-      sheetData.push(row);
+
+      table.data.forEach((student: any) => {
+        const row = [
+          student.enrollmentNo,
+          student.rollNo,
+          student.name,
+          ...table.dates.map((d: string) => student.attendance[d]),
+          student.totalPresent
+        ];
+        sheetData.push(row);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+      const wb = XLSX.utils.book_new();
+
+      XLSX.utils.book_append_sheet(wb, ws, table.subjectName);
+      XLSX.writeFile(wb, `${table.subjectName}_attendance.xlsx`);
     });
 
-    const ws = XLSX.utils.aoa_to_sheet(sheetData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Attendance");
-
-    XLSX.writeFile(wb, "attendance_sheet.xlsx");
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
 
-      {/* FILTER + EXPORT */}
-      <div className="flex gap-3 flex-wrap">
-
+      {/* FILTER */}
+      <div className="flex gap-3">
         <select
           value={batch}
           onChange={(e) => setBatch(e.target.value)}
@@ -99,60 +79,67 @@ export default function AttendanceSheet({ classId, subjectId }: any) {
         <Button onClick={exportToExcel}>
           Export Excel
         </Button>
-
       </div>
 
-      {/* TABLE */}
-      <div className="overflow-auto border rounded">
-        <table className="min-w-full text-sm border-collapse">
+      {/* SUBJECT TABLES */}
+      {tables.map((table, index) => (
+        <div key={index} className="border rounded p-4 shadow">
 
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border p-2">Enrollment No</th>
-              <th className="border p-2">Roll No</th>
-              <th className="border p-2">Student Name</th>
+          <h2 className="text-xl font-bold mb-4 text-blue-600">
+            {table.subjectName}
+          </h2>
 
-              {dates.map((d) => (
-                <th key={d} className={`border p-2 ${getColumnColor(d)}`}>
-                  {new Date(d).toLocaleDateString()}
-                </th>
-              ))}
+          <div className="overflow-auto">
+            <table className="min-w-full border text-sm">
 
-              <th className="border p-2 bg-blue-100">Total</th>
-            </tr>
-          </thead>
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border p-2">Enrollment No</th>
+                  <th className="border p-2">Roll No</th>
+                  <th className="border p-2">Student Name</th>
 
-          <tbody>
-            {data.map((student) => (
-              <tr key={student.studentId}>
-                <td className="border p-2">{student.enrollmentNo}</td>
-                <td className="border p-2">{student.rollNo}</td>
-                <td className="border p-2">{student.name}</td>
+                  {table.dates.map((d: string) => (
+                    <th key={d} className="border p-2">
+                      {new Date(d).toLocaleDateString()}
+                    </th>
+                  ))}
 
-                {dates.map((d) => {
-                  const value = student.attendance[d];
+                  <th className="border p-2 bg-blue-100">Total</th>
+                </tr>
+              </thead>
 
-                  return (
-                    <td
-                      key={d}
-                      className={`border p-2 text-center font-medium
-                        ${value === "A" ? "text-red-600" : "text-green-600"}
-                      `}
-                    >
-                      {value || "-"}
+              <tbody>
+                {table.data.map((student: any) => (
+                  <tr key={student.studentId}>
+                    <td className="border p-2">{student.enrollmentNo}</td>
+                    <td className="border p-2">{student.rollNo}</td>
+                    <td className="border p-2">{student.name}</td>
+
+                    {table.dates.map((d: string) => (
+                      <td
+                        key={d}
+                        className={`border p-2 text-center font-bold ${
+                          student.attendance[d] === "A"
+                            ? "text-red-600"
+                            : "text-green-600"
+                        }`}
+                      >
+                        {student.attendance[d]}
+                      </td>
+                    ))}
+
+                    <td className="border p-2 text-center text-blue-600 font-bold">
+                      {student.totalPresent}
                     </td>
-                  );
-                })}
+                  </tr>
+                ))}
+              </tbody>
 
-                <td className="border p-2 text-center font-bold text-blue-600">
-                  {student.totalPresent}
-                </td>
-              </tr>
-            ))}
-          </tbody>
+            </table>
+          </div>
 
-        </table>
-      </div>
+        </div>
+      ))}
 
     </div>
   );

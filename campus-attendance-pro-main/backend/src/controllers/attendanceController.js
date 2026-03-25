@@ -106,16 +106,16 @@ exports.generateQR = async (req, res) => {
       return res.status(200).json({
         success: false,
         message: "No active lecture right now",
-        nextLecture: nextLecture
-          ? {
-              subject: nextLecture.subject?.name || "N/A",
-              class: nextLecture.class?.name || "N/A",
-              startTime: nextLecture.startTime,
-              endTime: nextLecture.endTime,
-              // batch: nextLecture.batch,
-              type: nextLecture.type
-            }
-          : null,
+        // nextLecture: nextLecture
+        //   ? {
+        //       subject: nextLecture.subject?.name || "N/A",
+        //       class: nextLecture.class?.name || "N/A",
+        //       startTime: nextLecture.startTime,
+        //       endTime: nextLecture.endTime,
+        //       // batch: nextLecture.batch,
+        //       type: nextLecture.type
+        //     }
+        //   : null,
       });
     }
 

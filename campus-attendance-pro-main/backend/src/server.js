@@ -116,6 +116,7 @@ app.use('/api/subjects', require('./routes/subjects'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/notification', require('./routes/notification'));
 app.use('/api/otp', require('./routes/otp'));
+app.use('/api/facultyLectureNote',require('./routes/FacultyLectureNote'))
 
 // ❌ REMOVE THIS LINE (VERY IMPORTANT)
 // app.use('/api/lectureReminder', require('./utils/lectureReminder'));

@@ -261,11 +261,11 @@ exports.getTodaySubjects = async (req, res) => {
 
 exports.getAttendanceSheet = async (req, res) => {
   try {
-    const { classId, subjectId } = req.params;
+    const { classId } = req.params;
     const { batch } = req.query;
 
     // ======================
-    // STUDENTS FILTER
+    // GET STUDENTS
     // ======================
     let studentQuery = { class: classId };
 
@@ -278,79 +278,103 @@ exports.getAttendanceSheet = async (req, res) => {
       .sort({ rollNo: 1 });
 
     // ======================
-    // ATTENDANCE DATA
+    // GET ATTENDANCE
     // ======================
     const attendance = await Attendance.find({
-      class: classId,
-      subject: subjectId
-    }).sort({ createdAt: 1 });
+      class: classId
+    })
+      .populate("subject", "name")
+      .sort({ createdAt: 1 });
 
     // ======================
-    // UNIQUE DATES
+    // GROUP BY SUBJECT
     // ======================
-    const uniqueDates = [
-      ...new Set(
-        attendance.map(a =>
-          new Date(a.createdAt).toISOString().split("T")[0]
-        )
-      )
-    ];
+    const subjectMap = {};
 
-    const totalLectures = uniqueDates.length;
+    attendance.forEach(a => {
+      const subjectId = a.subject._id.toString();
 
-    let result = [];
-
-    // ======================
-    // BUILD TABLE
-    // ======================
-    for (let student of students) {
-      let count = 0;
-
-      let row = {
-        studentId: student._id,
-        enrollmentNo: student.enrollmentNo,
-        rollNo: student.rollNo,
-        name: student.user.fullName,
-        attendance: {},
-        totalPresent: 0,
-        percentage: 0
-      };
-
-      for (let date of uniqueDates) {
-        const record = attendance.find(
-          a =>
-            a.student.toString() === student._id.toString() &&
-            new Date(a.createdAt).toISOString().split("T")[0] === date
-        );
-
-        if (record && record.status === "Present") {
-          count++;
-          row.attendance[date] = count;
-        } else {
-          row.attendance[date] = "A";
-        }
+      if (!subjectMap[subjectId]) {
+        subjectMap[subjectId] = {
+          subjectName: a.subject.name,
+          records: []
+        };
       }
 
-      row.totalPresent = count;
-      row.percentage =
-        totalLectures > 0
-          ? Math.round((count / totalLectures) * 100)
-          : 0;
-
-      result.push(row);
-    }
-
-    res.json({
-      success: true,
-      dates: uniqueDates,
-      data: result
+      subjectMap[subjectId].records.push(a);
     });
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
+    const tables = [];
+
+    // ======================
+    // CREATE TABLE PER SUBJECT
+    // ======================
+    for (let subjectId in subjectMap) {
+
+      const records = subjectMap[subjectId].records;
+
+      // unique dates
+      const dates = [
+        ...new Set(
+          records.map(r =>
+            new Date(r.createdAt).toISOString().split("T")[0]
+          )
+        )
+      ];
+
+      let tableData = [];
+
+      for (let student of students) {
+
+        let count = 0;
+
+        let row = {
+          studentId: student._id,
+          enrollmentNo: student.enrollmentNo,
+          rollNo: student.rollNo,
+          name: student.user.fullName,
+          attendance: {},
+          totalPresent: 0
+        };
+
+        dates.forEach(date => {
+
+          const record = records.find(
+            r =>
+              r.student.toString() === student._id.toString() &&
+              new Date(r.createdAt).toISOString().split("T")[0] === date
+          );
+
+          if (record && record.status === "Present") {
+            row.attendance[date] = "P";
+            count++;
+          } else {
+            row.attendance[date] = "A";
+          }
+
+        });
+
+        row.totalPresent = count;
+        tableData.push(row);
+      }
+
+      tables.push({
+        subjectName: subjectMap[subjectId].subjectName,
+        dates,
+        data: tableData
+      });
+    }
+
+    return res.json({
+      success: true,
+      tables
+    });
+
+  } catch (error) {
+    console.error("Attendance Sheet Error:", error);
+    return res.status(500).json({
       success: false,
-      message: err.message
+      message: error.message
     });
   }
 };

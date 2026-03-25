@@ -34,6 +34,6 @@ router.put(
 
 router.get("/today-subjects",auth.protect,facultyController.getTodaySubjects)
 
-router.get("/attendance-sheet/:subjectId/:classId", auth.protect, facultyController.getAttendanceSheet);
+router.get("/attendance-sheet/:classId", auth.protect, facultyController.getAttendanceSheet);
 
 module.exports = router;

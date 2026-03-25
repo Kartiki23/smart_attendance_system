@@ -210,10 +210,10 @@ export function DashboardLayout({ children, role, userName = "User" }: Dashboard
             <div className="flex-1 lg:flex-none" />
 
             <div className="flex items-center gap-4">
-              <button className="relative p-2 hover:bg-accent rounded-lg">
+              <Button onClick={() =>navigate('/notifications')} className="relative p-2 hover:bg-accent rounded-lg">
                 <Bell className="w-5 h-5" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
-              </button>
+              </Button>
               <Button onClick={() =>navigate('/my-profile')}>
               <div className={cn("w-9 h-9 rounded-full flex items-center justify-center", config.gradient)}>
                 <User className="w-5 h-5 text-white" />

@@ -95,7 +95,7 @@ const App = () => (
             <Route path="/notifications" element={<Notification />} />
              <Route path="/forgot-password" element={<ForgotPassword/>}/>
             <Route path="/reset-password-otp" element={<ResetPasswordOTP/>}/>
-            <Route path="/attendance-sheet/:subjectId/:classId" element={<AttendanceSheetPage/>}/>
+            <Route path="/attendance-sheet/:classId" element={<AttendanceSheetPage/>}/>
 
             {/* Protected Routes */}
             <Route

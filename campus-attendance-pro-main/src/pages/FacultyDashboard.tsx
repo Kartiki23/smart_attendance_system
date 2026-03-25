@@ -439,7 +439,7 @@ export default function FacultyDashboard() {
                 alert("Please select class and subject first");
                 return;
               }
-             navigate(`/attendance-sheet/${selectedSubject}/${selectedClass}`);
+             navigate(`/attendance-sheet/${selectedClass}`);
               }}
               className="bg-blue-900 text-white">
                 View Attendance Sheet

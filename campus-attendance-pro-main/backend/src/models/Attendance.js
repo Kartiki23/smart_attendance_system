@@ -28,7 +28,8 @@ const attendanceSchema = new mongoose.Schema({
 
     // QR Session Token (for QR attendance)
     sessionToken: {
-        type: String
+        type: String,
+        required:true,
     },
 
     date: {
